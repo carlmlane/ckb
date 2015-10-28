@@ -13,16 +13,16 @@
 
 int os_usbsend(usbdevice* kb, const uchar* out_msg, int is_recv, const char* file, int line){
     // Firmware versions above 1.20 use Output instead of Feature reports for improved performance
-    // It doesn't work well when receiving data, however (Not sure why...linux doesn't have that problem)
+    // It doesn't work well when receiving data, however
     IOHIDReportType type = (kb->fwversion >= 0x120 && !is_recv ? kIOHIDReportTypeOutput : kIOHIDReportTypeFeature);
     kern_return_t res = (*kb->handle)->setReport(kb->handle, type, 0, out_msg, MSG_SIZE, 5000, 0, 0, 0);
     kb->lastresult = res;
-    if(IS_TEMP_FAILURE(res)){
-        ckb_warn_fn("Got return value 0x%x (continuing)\n", file, line, res);
-        return -1;
-    } else if(res != kIOReturnSuccess){
+    if(res != kIOReturnSuccess){
         ckb_err_fn("Got return value 0x%x\n", file, line, res);
-        return 0;
+        if(IS_TEMP_FAILURE(res))
+            return -1;
+        else
+            return 0;
     }
     return MSG_SIZE;
 }
@@ -31,12 +31,12 @@ int os_usbrecv(usbdevice* kb, uchar* in_msg, const char* file, int line){
     CFIndex length = MSG_SIZE;
     kern_return_t res = (*kb->handle)->getReport(kb->handle, kIOHIDReportTypeFeature, 0, in_msg, &length, 5000, 0, 0, 0);
     kb->lastresult = res;
-    if(IS_TEMP_FAILURE(res)){
-        ckb_warn_fn("Got return value 0x%x (continuing)\n", file, line, res);
-        return -1;
-    } else if(res != kIOReturnSuccess){
+    if(res != kIOReturnSuccess){
         ckb_err_fn("Got return value 0x%x\n", file, line, res);
-        return 0;
+        if(IS_TEMP_FAILURE(res))
+            return -1;
+        else
+            return 0;
     }
     if(length != MSG_SIZE)
         ckb_err_fn("Read %d bytes (expected %d)\n", file, line, (int)length, MSG_SIZE);
@@ -68,6 +68,8 @@ static void intreport(void* context, IOReturn result, void* sender, IOHIDReportT
     if(IS_MOUSE(kb->vendor, kb->product)){
         if(length == 10)
             hid_mouse_translate(kb->input.keys, &kb->input.rel_x, &kb->input.rel_y, -2, length, data);
+        else if(length == MSG_SIZE)
+            corsair_mousecopy(kb->input.keys, data);
     } else if(HAS_FEATURES(kb, FEAT_RGB)){
         switch(length){
         case 8:
@@ -76,12 +78,13 @@ static void intreport(void* context, IOReturn result, void* sender, IOHIDReportT
             break;
         case 21:
         case 5:
-            // RGB EP 2: NKRO (non-BIOS) input
-            hid_kb_translate(kb->input.keys, -2, length, data);
+            // RGB EP 2: NKRO (non-BIOS) input. Accept only if keyboard is inactive
+            if(!kb->active)
+                hid_kb_translate(kb->input.keys, -2, length, data);
             break;
         case MSG_SIZE:
             // RGB EP 3: Corsair input
-            corsair_keycopy(kb->input.keys, data);
+            corsair_kbcopy(kb->input.keys, data);
             break;
         }
     } else {
@@ -310,33 +313,73 @@ static void remove_device(void* context, io_service_t device, uint32_t message_t
     IOObjectRelease(device);
 }
 
+static int seize_wait(hid_dev_t handle){
+    // HACK: We shouldn't seize the HID device until it's successfully added to the service registry.
+    // Otherwise, OSX might think there's no keyboard/mouse connected.
+    long location = usbgetlong(handle, CFSTR(kIOHIDLocationIDKey));
+    char location_str[18];
+    snprintf(location_str, sizeof(location_str), "@%lx", location);
+    // Open master port (if not done yet)
+    static mach_port_t master = 0;
+    kern_return_t res;
+    if(!master && (res = IOMasterPort(bootstrap_port, &master)) != kIOReturnSuccess){
+        master = 0;
+        ckb_warn("Unable to open master port: 0x%08x\n", res);
+        return -1;
+    }
+    const int max_tries = 50;     // give up after ~5s
+    for(int try = 0; try < max_tries; try++){
+        usleep(100);
+        // Iterate the whole IOService registry
+        io_iterator_t child_iter;
+        if((res = IORegistryCreateIterator(master, kIOServicePlane, kIORegistryIterateRecursively, &child_iter)) != kIOReturnSuccess)
+            return -2;
+
+        io_registry_entry_t child_service;
+        while((child_service = IOIteratorNext(child_iter)) != 0){
+            io_string_t path;
+            IORegistryEntryGetPath(child_service, kIOServicePlane, path);
+            IOObjectRelease(child_service);
+            // Look for an entry that matches the location of the device and says "HID". If found, we can proceed with adding the device
+            if(strstr(path, location_str) && strstr(path, "HID")){
+                IOObjectRelease(child_iter);
+                return 0;
+            }
+        }
+        IOObjectRelease(child_iter);
+    }
+    // Timed out
+    return -3;
+}
+
 static void iterate_devices(void* context, io_iterator_t iterator){
     io_service_t device;
+    euid_guard_start;
     while((device = IOIteratorNext(iterator)) != 0){
         // Get the plugin interface for the device
-        IOCFPlugInInterface** plugin;
-        SInt32 score;
+        IOCFPlugInInterface** plugin = 0;
+        SInt32 score = 0;
         kern_return_t err = IOCreatePlugInInterfaceForService(device, kIOHIDDeviceTypeID, kIOCFPlugInInterfaceID, &plugin, &score);
         if(err != kIOReturnSuccess){
             ckb_err("Failed to create device plugin: %x\n", err);
-            continue;
+            goto release;
         }
         // Get the device interface
         hid_dev_t handle;
         err = (*plugin)->QueryInterface(plugin, CFUUIDGetUUIDBytes(kIOHIDDeviceDeviceInterfaceID), (LPVOID*)&handle);
         if(err != kIOReturnSuccess){
             ckb_err("QueryInterface failed: %x\n", err);
-            continue;
+            goto release;
         }
         // Plugin is no longer needed
         IODestroyPlugInInterface(plugin);
         // Seize the device handle
-        euid_guard_start;
+        if(seize_wait(handle))
+            ckb_warn("seize_wait failed, connecting anyway...\n");
         err = (*handle)->open(handle, kIOHIDOptionsTypeSeizeDevice);
-        euid_guard_stop;
         if(err != kIOReturnSuccess){
             ckb_err("Failed to seize device: %x\n", err);
-            continue;
+            goto release;
         }
         // Connect it
         io_object_t* rm_notify = 0;
@@ -344,17 +387,23 @@ static void iterate_devices(void* context, io_iterator_t iterator){
         if(kb)
             // If successful, register for removal notification
             IOServiceAddInterestNotification(notify, device, kIOGeneralInterest, remove_device, kb, rm_notify);
-        else {
+        else
             // Otherwise, release it now
-            (*handle)->close(handle, kIOHIDOptionsTypeNone);
-            remove_device(0, device, kIOMessageServiceIsTerminated, 0);
-        }
+            (*handle)->close(handle, kIOHIDOptionsTypeSeizeDevice);
+        release:
+        IOObjectRelease(device);
     }
+    euid_guard_stop;
 }
 
 int usbmain(){
     int vendor = V_CORSAIR;
-    int products[] = { P_K65, P_K70, P_K70_NRGB, P_K95, P_K95_NRGB, P_M65 };
+    int products[] = {
+        // Keyboards
+        P_K65, P_K70, P_K70_NRGB, P_K95, P_K95_NRGB, P_STRAFE,
+        // Mice
+        P_M65, P_SABRE, P_SCIMITAR
+    };
     // Tell IOService which type of devices we want (IOHIDDevices matching the supported vendor/products)
     CFMutableDictionaryRef match = IOServiceMatching(kIOHIDDeviceKey);
     CFNumberRef cfvendor = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &vendor);
@@ -372,14 +421,15 @@ int usbmain(){
 
     notify = IONotificationPortCreate(kIOMasterPortDefault);
     CFRunLoopAddSource(mainloop = CFRunLoopGetCurrent(), IONotificationPortGetRunLoopSource(notify), kCFRunLoopDefaultMode);
-    io_iterator_t iterator;
+    io_iterator_t iterator = 0;
     IOReturn res = IOServiceAddMatchingNotification(notify, kIOMatchedNotification, match, iterate_devices, 0, &iterator);
     if(res != kIOReturnSuccess){
         ckb_fatal("Failed to list devices: %x\n", res);
         return -1;
     }
     // Iterate existing devices
-    iterate_devices(0, iterator);
+    if(iterator)
+        iterate_devices(0, iterator);
     // Enter loop to scan/connect new devices
     CFRunLoopRun();
     return 0;

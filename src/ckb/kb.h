@@ -26,22 +26,22 @@ public:
     // Is this the keyboard at the given serial/path?
     inline bool matches(const QString& path, const QString& serial) { return path.trimmed() == devpath.trimmed() && usbSerial == serial.trimmed().toUpper(); }
 
-    // Keyboard model and layout
+    // Keyboard model
     inline KeyMap::Model    model() const                       { return _model; }
-    inline KeyMap::Layout   layout() const                      { return _layout; }
-    void                    layout(KeyMap::Layout newLayout);
     bool                    isKeyboard() const                  { return KeyMap::isKeyboard(_model); }
     bool                    isMouse() const                     { return KeyMap::isMouse(_model); }
 
     inline bool isOpen() const { return cmd.isOpen(); }
 
-    // Frame rate for all devices
-    static inline int   frameRate()                     { return _frameRate; }
-    static void         frameRate(int newFrameRate);
-
-    // Whether dithering is used
-    inline bool  dither()                        { return _dither; }
-    void         dither(bool newDither);
+    // Frame rate (all devices)
+    static inline int               frameRate()                         { return _frameRate; }
+    static void                     frameRate(int newFrameRate);
+    // Layout (all devices)
+    static inline KeyMap::Layout    layout()                            { return _layout; }
+    static void                     layout(KeyMap::Layout newLayout);
+    // Whether dithering is used (all devices)
+    static inline bool              dither()                            { return _dither; }
+    static void                     dither(bool newDither);
 
     // Profile saved to hardware
     inline KbProfile*   hwProfile() { return _hwProfile; }
@@ -66,6 +66,7 @@ public:
     inline KbMode*  currentMode()   { return _currentMode; }
     inline KbLight* currentLight()  { return !_currentMode ? 0 : _currentMode->light(); }
     inline KbBind*  currentBind()   { return !_currentMode ? 0 : _currentMode->bind(); }
+    inline KbPerf*  currentPerf()   { return !_currentMode ? 0 : _currentMode->perf(); }
 
     // Update selection
     void        setCurrentProfile(KbProfile* profile, bool spontaneous = true);
@@ -113,15 +114,18 @@ private slots:
 
 private:
     static int _frameRate;
+    static KeyMap::Layout _layout;
+    void updateLayout();
+    static bool _dither;
 
     KbProfile*          _currentProfile;
     QList<KbProfile*>   _profiles;
     KbMode*             _currentMode;
 
     KeyMap::Model   _model;
-    KeyMap::Layout  _layout;
 
-    bool _dither;
+    // Indicator light state
+    bool iState[KbPerf::HW_I_COUNT];
 
     // Current firmware update file
     QString fwUpdPath;

@@ -33,6 +33,11 @@ struct KeyPatch {
     const char* name;
 };
 
+static const KeyPatch patchEU[] = {
+    {0, "\\ (R)", "hash"},
+    {0, "\\ (L)", "bslash_iso"}
+};
+
 static const KeyPatch patchFR[] = {
     {"sup2", "²", "grave"}, {0, "&", "1"}, {0, "É", "2"}, {0, "\"", "3"}, {0, "'", "4"}, {0, "(", "5"}, {0, "-", "6"}, {0, "È", "7"}, {0, "_", "8"}, {0, "Ç", "9"}, {0, "À", "0"}, {"rparen", ")", "minus"},
     {"a", "A", "q"}, {"z", "Z", "w"}, {"caret", "^", "lbrace"}, {"dollar", "$", "rbrace"},
@@ -45,6 +50,13 @@ static const KeyPatch patchDE[] = {
     {"z", "Z", "y"}, {"ue", "Ü", "lbrace"}, {"plus", "+", "rbrace"},
     {"oe", "Ö", "colon"}, {"ae", "Ä", "quote"},
     {"angle", "<", "bslash_iso"}, {"y", "Y", "z"}, {"minus", "-", "slash"}
+};
+
+static const KeyPatch patchIT[] = {
+    {0, "\\", "grave"}, {0, "'", "minus"}, {0, "Ì", "equal"},
+    {0, "È", "lbrace"}, {0, "+", "rbrace"},
+    {0, "Ò", "colon"}, {0, "À", "quote"}, {0, "Ù", "hash"},
+    {0, "<", "bslash_iso"}, {0, "-", "slash"},
 };
 
 static const KeyPatch patchES[] = {
@@ -114,7 +126,16 @@ static const Key K65TopRow[] = {
 };
 #define K65_TOP_COUNT (sizeof(K65TopRow) / sizeof(Key))
 
-// Mouse map
+// Strafe has side lights
+#define KSTRAFE_X_START     10
+#define KSTRAFE_WIDTH       (K70_WIDTH + (KSTRAFE_X_START * 2))
+#define KSTRAFE_HEIGHT      K95_HEIGHT
+
+static const Key KStrafeKeys[] = {
+  {0, "Sidelight", "lsidel", 0, KSTRAFE_HEIGHT/2, KSTRAFE_X_START, KSTRAFE_HEIGHT*2-4, true, false}, {0, "Sidelight", "rsidel", KSTRAFE_WIDTH, KSTRAFE_HEIGHT/2, KSTRAFE_X_START, KSTRAFE_HEIGHT*2-4, true, false}
+};
+
+// Mouse map - M65
 static const Key M65Keys[] = {
     {0, "Left Mouse", "mouse1", 8, 0, 14, 32, false, true}, {0, "Right Mouse", "mouse2", 30, 0, 14, 32, false, true}, {0, "Middle Mouse", "mouse3", 22, 8, 8, 7, false, true},
     {0, "Wheel Up", "wheelup", 22, 4, 8, 5, false, true}, {0, "Wheel Down", "wheeldn", 22, 14, 8, 5, false, true}, {0, "Wheel Light", "front", 22, 15, 8, 8, true, false},
@@ -122,15 +143,45 @@ static const Key M65Keys[] = {
     {0, "Forward", "mouse5", 5, 24, 5, 9, false, true}, {0, "Back", "mouse4", 5, 33, 5, 10, false, true}, {0, "Sniper", "sniper", 0, 25, 5, 15, false, true},
     {0, "Logo", "back", 14, 55, 24, 12, true, false}
 };
-#define KEYCOUNT_M65 (sizeof(M65Keys) / sizeof(Key))
+#define KEYCOUNT_M65    (sizeof(M65Keys) / sizeof(Key))
 
 #define M65_WIDTH       52
 #define M65_HEIGHT      67
 
+// Sabre
+static const Key SabreKeys[] = {
+    {0, "Left Mouse", "mouse1", 8, 0, 14, 32, false, true}, {0, "Right Mouse", "mouse2", 30, 0, 14, 32, false, true}, {0, "Middle Mouse", "mouse3", 22, 9, 8, 7, false, true}, {0, "Front light", "front", 8, -2, 14, 8, true, false },
+    {0, "Wheel Up", "wheelup", 22, 5, 8, 5, false, true}, {0, "Wheel Down", "wheeldn", 22, 15, 8, 5, false, true}, {0, "Wheel Light", "wheel", 22, 5, 8, 15, true, false}, {0, "Extra button", "thumb1", 22, 20, 8, 18, false, true},
+    {0, "DPI Up", "dpiup", 5, 3, 5, 7, false, true}, {0, "DPI Down", "dpidn", 5, 10, 5, 7, false, true}, {0, "DPI Light", "dpi", 5, 4, 5, 12, true, false},
+    {0, "Forward", "mouse5", 5, 24, 5, 9, false, true}, {0, "Back", "mouse4", 5, 33, 5, 10, false, true},
+    {0, "Logo", "back", 14, 50, 24, 12, true, false}
+};
+#define KEYCOUNT_SABRE  (sizeof(SabreKeys) / sizeof(Key))
+
+#define SABRE_WIDTH     M65_WIDTH
+#define SABRE_HEIGHT    M65_HEIGHT
+
+// Scimitar
+static const Key ScimKeys[] = {
+    {0, "Left Mouse", "mouse1", 8, 0, 14, 32, false, true}, {0, "Right Mouse", "mouse2", 30, 0, 12, 32, false, true}, {0, "Middle Mouse", "mouse3", 22, 9, 8, 6, false, true}, {0, "Front light", "front", 30, 0, 12, 8, true, false },
+    {0, "Wheel Up", "wheelup", 22, 3, 8, 6, false, true}, {0, "Wheel Down", "wheeldn", 22, 14, 8, 6, false, true}, {0, "Wheel Light", "wheel", 22, 3, 8, 17, true, false},
+    {0, "DPI Up", "dpiup", 22, 19, 8, 9, false, true}, {0, "DPI Light", "dpi", 1, 12, 8, 4, true, false}, {0, "DPI Down", "dpidn", 22, 28, 8, 9, false, true},
+    {0, "Thumb light", "thumb", 0, 21, 10, 24, true, false},
+    {0, "1", "thumb1", -13, 18, 7, 7, false, true}, {0, "2", "thumb2", -6, 18, 7, 7, false, true}, {0, "3", "thumb3", 1, 18, 7, 7, false, true},
+    {0, "4", "thumb4", -13, 25, 7, 7, false, true}, {0, "5", "thumb5", -6, 25, 7, 7, false, true}, {0, "6", "thumb6", 1, 25, 7, 7, false, true},
+    {0, "7", "thumb7", -13, 32, 7, 7, false, true}, {0, "8", "thumb8", -6, 32, 7, 7, false, true}, {0, "9", "thumb9", 1, 32, 7, 7, false, true},
+    {0, "10", "thumb10", -13, 39, 7, 7, false, true}, {0, "11", "thumb11", -6, 39, 7, 7, false, true}, {0, "12", "thumb12", 1, 39, 7, 7, false, true},
+    {0, "Logo", "back", 14, 50, 24, 16, true, false}
+};
+#define KEYCOUNT_SCIM   (sizeof(ScimKeys) / sizeof(Key))
+
+#define SCIM_WIDTH      M65_WIDTH
+#define SCIM_HEIGHT     M65_HEIGHT
+
 // Map getter. Each model/layout pair only needs to be constructed once; after that, future KeyMaps can copy the existing maps.
 #define N_MODELS    KeyMap::_MODEL_MAX
 #define N_LAYOUTS   KeyMap::_LAYOUT_MAX
-static QHash<QString, Key> K95BaseMap, M65BaseMap;
+static QHash<QString, Key> K95BaseMap;
 static QHash<QString, Key> standardMaps[N_MODELS][N_LAYOUTS];
 static QHash<QString, Key> getMap(KeyMap::Model model, KeyMap::Layout layout){
     if(model < 0 || layout < 0 || model >= N_MODELS || layout >= N_LAYOUTS)
@@ -151,21 +202,29 @@ static QHash<QString, Key> getMap(KeyMap::Model model, KeyMap::Layout layout){
         map = K95BaseMap;
         // Patch the map for the layout
         switch(layout){
+        case KeyMap::EU_DVORAK:
+            patch(map, patchDvorak);    // fall through
+        case KeyMap::EU:
+            patch(map, patchEU);
+            break;
+        case KeyMap::GB_DVORAK:
+        case KeyMap::US_DVORAK:
+            patch(map, patchDvorak);
+            break;
         case KeyMap::FR:
             patch(map, patchFR);
             break;
         case KeyMap::DE:
             patch(map, patchDE);
             break;
+        case KeyMap::IT:
+            patch(map, patchIT);
+            break;
         case KeyMap::ES:
             patch(map, patchES);
             break;
         case KeyMap::SE:
             patch(map, patchSE);
-            break;
-        case KeyMap::GB_DVORAK:
-        case KeyMap::US_DVORAK:
-            patch(map, patchDvorak);
             break;
         default:;
             // English QWERTY - no patch needed
@@ -209,18 +268,66 @@ static QHash<QString, Key> getMap(KeyMap::Model model, KeyMap::Layout layout){
         // Done!
         break;
     }
+    case KeyMap::STRAFE:{
+        // The Strafe RGB maps are based on the K70 map minus the media keys
+        map = getMap(KeyMap::K70, layout);
+        //move light and lock right
+        map["light"].x=285 - K70_X_START;
+        map["light"].hasLed=false;
+        map["lock"].x=297 - K70_X_START;
+        map["lock"].hasLed=false;
+        // move everything right to make the space for the left sidelight
+        QMutableHashIterator<QString, Key> i(map);
+        while(i.hasNext()){
+            i.next();
+            i.value().x += KSTRAFE_X_START;
+        }
+        // add sidelights
+        map["lsidel"] = KStrafeKeys[0];
+        map["rsidel"] = KStrafeKeys[1];
+        // remove media controls
+        map.remove("mute");
+        map.remove("volup");
+        map.remove("voldn");
+        map.remove("stop");
+        map.remove("prev");
+        map.remove("play");
+        map.remove("next");
+        // Done!
+        break;
+    }
     case KeyMap::M65:{
-        // M65 isn't a keyboard; it has its own base
+        // M65 isn't a keyboard; all mouse maps are unique.
         for(const Key* key = M65Keys; key < M65Keys + KEYCOUNT_M65; key++){
             // Keyboard keys are written from the center because that's where the LEDs are, but the mouse buttons are odd shapes so they're
             // written from the upper left
             Key translatedKey = *key;
             translatedKey.x += translatedKey.width / 2;
             translatedKey.y += translatedKey.height / 2;
-            M65BaseMap[key->name] = translatedKey;
+            map[key->name] = translatedKey;
         }
-        map = M65BaseMap;
-        // Mice have no layout patches - no other changes necessary
+        // Mice also have no layout patches - no other changes necessary
+        break;
+    }
+    case KeyMap::SABRE:{
+        // Scimitar mouse
+        for(const Key* key = SabreKeys; key < SabreKeys + KEYCOUNT_SABRE; key++){
+            // Like the M65, the keys are upper-left justified
+            Key translatedKey = *key;
+            translatedKey.x += translatedKey.width / 2;
+            translatedKey.y += translatedKey.height / 2;
+            map[key->name] = translatedKey;
+        }
+        break;
+    }
+    case KeyMap::SCIMITAR:{
+        // Scimitar mouse
+        for(const Key* key = ScimKeys; key < ScimKeys + KEYCOUNT_SCIM; key++){
+            Key translatedKey = *key;
+            translatedKey.x += translatedKey.width / 2;
+            translatedKey.y += translatedKey.height / 2;
+            map[key->name] = translatedKey;
+        }
         break;
     }
     default:;    // <- stop GCC from complaining
@@ -237,6 +344,10 @@ KeyMap::Layout KeyMap::locale(){
         return KeyMap::FR;
     else if(loc.startsWith("de-"))
         return KeyMap::DE;
+    else if(loc.startsWith("it-"))
+        return KeyMap::IT;
+    else if(loc.startsWith("pl-"))
+        return KeyMap::PL;
     else if(loc.startsWith("es-"))
         return KeyMap::ES;
     else if(loc.startsWith("se-"))
@@ -251,35 +362,39 @@ KeyMap::Layout KeyMap::locale(){
 
 KeyMap::Layout KeyMap::getLayout(const QString& name){
     QString lower = name.toLower();
-    if(lower == "fr")
-        return FR;
-    if(lower == "de")
-        return DE;
-    if(lower == "es")
-        return ES;
-    if(lower == "se")
-        return SE;
-    if(lower == "gb")
-        return GB;
+    if(lower == "eu")
+        return EU;
+    if(lower == "eu_dvorak")
+        return EU_DVORAK;
     if(lower == "gb_dvorak")
         return GB_DVORAK;
     if(lower == "us")
         return US;
     if(lower == "us_dvorak")
         return US_DVORAK;
+    if(lower == "fr")
+        return FR;
+    if(lower == "de")
+        return DE;
+    if(lower == "it")
+        return IT;
+    if(lower == "pl")
+        return PL;
+    if(lower == "es")
+        return ES;
+    if(lower == "se")
+        return SE;
+    if(lower == "gb")
+        return GB;
     return NO_LAYOUT;
 }
 
 QString KeyMap::getLayout(KeyMap::Layout layout){
     switch(layout){
-    case FR:
-        return "fr";
-    case DE:
-        return "de";
-    case ES:
-        return "es";
-    case SE:
-        return "se";
+    case EU:
+        return "eu";
+    case EU_DVORAK:
+        return "eu_dvorak";
     case GB:
         return "gb";
     case GB_DVORAK:
@@ -288,6 +403,18 @@ QString KeyMap::getLayout(KeyMap::Layout layout){
         return "us";
     case US_DVORAK:
         return "us_dvorak";
+    case FR:
+        return "fr";
+    case DE:
+        return "de";
+    case IT:
+        return "it";
+    case PL:
+        return "pl";
+    case ES:
+        return "es";
+    case SE:
+        return "se";
     default:
         return "";
     }
@@ -301,8 +428,14 @@ KeyMap::Model KeyMap::getModel(const QString& name){
         return K70;
     if(lower == "k95")
         return K95;
+    if(lower == "strafe")
+        return STRAFE;
     if(lower == "m65")
         return M65;
+    if(lower == "sabre")
+        return SABRE;
+    if(lower == "scimitar")
+        return SCIMITAR;
     return NO_MODEL;
 }
 
@@ -314,8 +447,14 @@ QString KeyMap::getModel(KeyMap::Model model){
         return "k70";
     case K95:
         return "k95";
+    case STRAFE:
+        return "strafe";
     case M65:
         return "m65";
+    case SABRE:
+        return "sabre";
+    case SCIMITAR:
+        return "scimitar";
     default:
         return "";
     }
@@ -328,10 +467,44 @@ KeyMap KeyMap::fromName(const QString &name){
     return KeyMap(getModel(list[0]), getLayout(list[1]));
 }
 
+int KeyMap::modelWidth(Model model){
+    switch(model){
+    case K65:
+        return K65_WIDTH;
+    case K70:
+        return K70_WIDTH;
+    case K95:
+        return K95_WIDTH;
+    case STRAFE:
+        return KSTRAFE_WIDTH;
+    case M65:
+    case SABRE:
+    case SCIMITAR:
+        return M65_WIDTH;
+    default:
+        return 0;
+    }
+}
+
+int KeyMap::modelHeight(Model model){
+    switch(model){
+    case K65:
+    case K70:
+    case K95:
+    case STRAFE:
+        return K95_HEIGHT;
+    case M65:
+    case SABRE:
+    case SCIMITAR:
+        return M65_HEIGHT;
+    default:
+        return 0;
+    }
+}
+
 KeyMap::KeyMap(Model _keyModel, Layout _keyLayout) :
     _keys(getMap(_keyModel, _keyLayout)),
-    keyWidth(_keyModel == K95 ? K95_WIDTH : _keyModel == K70 ? K70_WIDTH : _keyModel == K65 ? K65_WIDTH : _keyModel == M65 ? M65_WIDTH : 0),
-    keyHeight(_keyModel == K95 || _keyModel == K70 || _keyModel == K65 ? K95_HEIGHT : _keyModel == M65 ? M65_HEIGHT : 0),
+    keyWidth(modelWidth(_keyModel)), keyHeight(modelHeight(_keyModel)),
     keyModel(_keyModel), keyLayout(_keyLayout)
 {}
 
@@ -368,7 +541,10 @@ QString KeyMap::friendlyName(const QString& key, Layout layout){
     KeyMap map(K95, layout);
     if(map.contains(key))
         return map[key].friendlyName();
-    // If that didn't work, try M65
+    // If that didn't work, try mice
+    map = KeyMap(SCIMITAR, layout);
+    if(map.contains(key))
+        return map[key].friendlyName();
     map = KeyMap(M65, layout);
     if(map.contains(key))
         return map[key].friendlyName();

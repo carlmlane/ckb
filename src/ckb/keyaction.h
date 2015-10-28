@@ -6,6 +6,7 @@
 #include "keymap.h"
 
 class KbBind;
+class KbAnim;
 
 // Class for managing an action associated with a keypress
 
@@ -47,9 +48,11 @@ public:
     const static int LOCK_TOGGLE = 0, LOCK_ON = 1, LOCK_OFF = 2;
     static QString  lockAction(int type = LOCK_TOGGLE);
     // Key to launch a program. stop should be (<press stop> | <release stop>)
-    static const int PROGRAM_PR_INDEF = 0x00, PROGRAM_PR_KRSTOP = 0x01, PROGRAM_PR_KPSTOP = 0x02;
-    static const int PROGRAM_RE_INDEF = 0x00, PROGRAM_RE_KPSTOP = 0x20;
+    static const int PROGRAM_PR_MULTI = 0x04, PROGRAM_PR_INDEF = 0x00, PROGRAM_PR_KRSTOP = 0x01, PROGRAM_PR_KPSTOP = 0x02;
+    static const int PROGRAM_RE_MULTI = 0x40, PROGRAM_RE_INDEF = 0x00, PROGRAM_RE_KPSTOP = 0x20;
     static QString  programAction(const QString& onPress, const QString& onRelease, int stop);
+    // Key to start an animation
+    static QString animAction(const QUuid& guid, bool onlyOnce, bool stopOnRelease);
 
     // Action type
     enum Type {
@@ -63,10 +66,11 @@ public:
     inline bool isSpecial() const       { return type() == SPECIAL; }
     // Media is a type of normal key
     inline bool isMedia() const         { return _value == "mute" || _value == "volup" || _value == "voldn" || _value == "stop" || _value == "prev" || _value == "play" || _value == "next"; }
-    // Program keys are a type of special key
-    inline bool isProgram() const       { return _value.left(8) == "$program"; }
+    // Program and animation are types of special key
+    inline bool isProgram() const       { return _value.startsWith("$program:"); }
+    inline bool isAnim() const          { return _value.startsWith("$anim:"); }
     // Mouse is some normal keys plus DPI
-    inline bool isDPI() const           { return _value.startsWith("$dpi"); }
+    inline bool isDPI() const           { return _value.startsWith("$dpi:"); }
     inline bool isMouse() const         { return (isNormal() && (_value.startsWith("mouse") || _value.startsWith("wheel"))) || isDPI(); }
 
     // Splits a special action into action and parameter.
@@ -75,11 +79,15 @@ public:
     int     programInfo(QString& onPress, QString& onRelease)   const;
     // Get DPI info. custom is only set if return == DPI_CUSTOM.
     int     dpiInfo(QPoint& custom)                             const;
+    // Get animation info.
+    QUuid   animInfo(bool& onlyOnce, bool& stopOnRelease)       const;
 
     // Perform keydown action (if any)
     void keyEvent(KbBind* bind, bool down);
     // Perform keyup action (if any)
     void keyRelease(KbBind* bind);
+    // Adjusts the DISPLAY variable to the mouse's screen. Needed to ensure that programs launch on the correct screen in multihead.
+    void adjustDisplay();
 
 
     ~KeyAction();

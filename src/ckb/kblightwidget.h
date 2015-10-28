@@ -36,13 +36,13 @@ private slots:
 
     void on_showAnimBox_clicked(bool checked);
 
+    void toggleSidelight(); //strafe
+
 private:
     KbLight* light;
-
     QStringList currentSelection;
 
     Ui::KbLightWidget *ui;
-    friend class KbWidget;
 };
 
 #endif // KBLIGHTWIDGET_H

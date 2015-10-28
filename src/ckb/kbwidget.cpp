@@ -38,10 +38,18 @@ KbWidget::KbWidget(QWidget *parent, const QString &path, const QString &prefsBas
     connect(device, SIGNAL(modeRenamed()), this, SLOT(modeChanged()));
     connect(device, SIGNAL(modeChanged(bool)), this, SLOT(modeChanged(bool)));
 
-    // Remove the Lighting and Misc tabs from non-RGB keyboards
+    // Remove the Lighting and Performance tabs from non-RGB keyboards
     if(!device->features.contains("rgb")){
         ui->tabWidget->removeTab(ui->tabWidget->indexOf(ui->lightTab));
-        ui->tabWidget->removeTab(ui->tabWidget->indexOf(ui->miscTab));
+        ui->tabWidget->removeTab(ui->tabWidget->indexOf(ui->kPerfTab));
+        ui->tabWidget->removeTab(ui->tabWidget->indexOf(ui->mPerfTab));
+    } else {
+        // Remove mouse Performance tab from non-mice
+        if(!device->isMouse())
+            ui->tabWidget->removeTab(ui->tabWidget->indexOf(ui->mPerfTab));
+        // Remove keyboard Performance tab from non-keyboards
+        if(!device->isKeyboard())
+            ui->tabWidget->removeTab(ui->tabWidget->indexOf(ui->kPerfTab));
     }
     // Hide poll rate and FW update as appropriate
     if(!device->features.contains("pollrate")){
@@ -53,7 +61,6 @@ KbWidget::KbWidget(QWidget *parent, const QString &path, const QString &prefsBas
         ui->fwUpdLabel->hide();
         ui->fwUpdLayout->removeItem(ui->fwUpdLayout->itemAt(1));
     }
-
     // Load profiles from stored settings
     CkbSettings settings(prefsPath);
     device->load(settings);
@@ -175,6 +182,8 @@ void KbWidget::modeChanged(bool spontaneous){
     // Update tabs
     ui->lightWidget->setLight(device->currentLight());
     ui->bindWidget->setBind(device->currentBind(), device->currentProfile());
+    ui->kPerfWidget->setPerf(device->currentPerf(), device->currentProfile());
+    ui->mPerfWidget->setPerf(device->currentPerf(), device->currentProfile());
     // Update selection
     if(spontaneous)
         ui->modesList->setCurrentRow(index);
@@ -316,23 +325,9 @@ void KbWidget::devUpdate(){
     ui->serialLabel->setText(device->usbSerial);
     ui->fwLabel->setText(device->firmware);
     ui->pollLabel->setText(device->pollrate);
-    ui->layoutBox->setCurrentIndex(device->layout());
-    ui->ditherCheck->setChecked(device->dither());
 }
 
 void KbWidget::modeUpdate(){
-    KbLight* currentLight = currentMode->light();
-    bool inactiveCheck = (currentLight->inactive() >= 0);
-    ui->inactiveSwitchCheck->setChecked(inactiveCheck);
-    if(inactiveCheck){
-        ui->inactiveSwitchBox->setEnabled(true);
-        ui->muteCheck->setEnabled(true);
-    } else {
-        ui->inactiveSwitchBox->setEnabled(false);
-        ui->muteCheck->setEnabled(false);
-    }
-    ui->inactiveSwitchBox->setCurrentIndex(currentLight->inactive() >= 0 ? currentLight->inactive() : KbLight::MAX_INACTIVE);
-    ui->muteCheck->setChecked(currentLight->showMute());
 }
 
 void KbWidget::on_hwSaveButton_clicked(){
@@ -340,39 +335,6 @@ void KbWidget::on_hwSaveButton_clicked(){
     device->hwSave();
     updateProfileList();
     profileChanged();
-}
-
-void KbWidget::on_inactiveSwitchCheck_clicked(bool checked){
-    KbLight* currentLight = currentMode->light();
-    if(checked){
-        currentLight->inactive(ui->inactiveSwitchBox->currentIndex());
-        currentLight->showMute(ui->muteCheck->isChecked());
-        ui->inactiveSwitchBox->setEnabled(true);
-        ui->muteCheck->setEnabled(true);
-    } else {
-        currentLight->inactive(-1);
-        ui->inactiveSwitchBox->setEnabled(false);
-        ui->muteCheck->setEnabled(false);
-    }
-}
-
-void KbWidget::on_inactiveSwitchBox_activated(int index){
-    if(ui->inactiveSwitchCheck->isChecked())
-        currentMode->light()->inactive(index);
-}
-
-void KbWidget::on_muteCheck_clicked(bool checked){
-    if(ui->inactiveSwitchCheck->isCheckable())
-        currentMode->light()->showMute(checked);
-}
-
-void KbWidget::on_ditherCheck_clicked(bool checked){
-    if(ui->ditherCheck->isCheckable())
-        device->dither(checked);
-}
-
-void KbWidget::on_layoutBox_activated(int index){
-    device->layout((KeyMap::Layout)index);
 }
 
 void KbWidget::on_tabWidget_currentChanged(int index){

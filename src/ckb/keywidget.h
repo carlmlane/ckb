@@ -46,6 +46,7 @@ public slots:
 signals:
     // Emitted when the selection is changed.
     void selectionChanged(QStringList selected);
+    void sidelightToggled();
 
 private:
     KeyMap keyMap;
@@ -72,7 +73,7 @@ private:
     void mouseReleaseEvent(QMouseEvent* event);
 
     // Get drawing scale/offset. drawX = (keymapX + offsetX) * scale
-    void drawInfo(float& scale, float& offsetX, float& offsetY);
+    void drawInfo(float& scale, float& offsetX, float& offsetY, int ratio = 1);
 };
 
 #endif // RGBWIDGET_H

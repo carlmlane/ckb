@@ -37,5 +37,6 @@ void CkbSettingsWriter::run(){
         printf("Settings: writing %s <- %s\n", keyC.constData(), valC.constData());
         // Updating the global cache was done above
     }
+    _backing->sync();
     deleteLater();
 }

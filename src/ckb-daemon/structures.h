@@ -70,10 +70,11 @@ typedef struct {
 
 // Lighting structure for a mode
 typedef struct {
-    uchar r[N_KEYS_KB + N_MOUSE_ZONES_EXTENDED];
-    uchar g[N_KEYS_KB + N_MOUSE_ZONES_EXTENDED];
-    uchar b[N_KEYS_KB + N_MOUSE_ZONES_EXTENDED];
+    uchar r[N_KEYS_HW + N_MOUSE_ZONES_EXTENDED];
+    uchar g[N_KEYS_HW + N_MOUSE_ZONES_EXTENDED];
+    uchar b[N_KEYS_HW + N_MOUSE_ZONES_EXTENDED];
     uchar forceupdate;
+    uchar sidelight; // strafe sidelight
 } lighting;
 
 // Native mode structure
@@ -138,13 +139,14 @@ typedef struct {
 #define FEAT_NOTIFY     0x010   // Key notifications?
 #define FEAT_FWVERSION  0x020   // Has firmware version?
 #define FEAT_FWUPDATE   0x040   // Has firmware update?
+#define FEAT_HWLOAD     0x080   // Hardware load enabled?
 
-#define FEAT_ANSI       0x080   // ANSI/ISO layout toggle (Mac only - not needed on Linux)
-#define FEAT_ISO        0x100
-#define FEAT_MOUSEACCEL 0x200   // Mouse acceleration (also Mac only)
+#define FEAT_ANSI       0x100   // ANSI/ISO layout toggle (Mac only - not needed on Linux)
+#define FEAT_ISO        0x200
+#define FEAT_MOUSEACCEL 0x400   // Mouse acceleration (also Mac only)
 
 // Standard feature sets
-#define FEAT_COMMON     (FEAT_BIND | FEAT_NOTIFY | FEAT_FWVERSION | FEAT_MOUSEACCEL)
+#define FEAT_COMMON     (FEAT_BIND | FEAT_NOTIFY | FEAT_FWVERSION | FEAT_MOUSEACCEL | FEAT_HWLOAD)
 #define FEAT_STD_RGB    (FEAT_COMMON | FEAT_RGB | FEAT_POLLRATE | FEAT_FWUPDATE)
 #define FEAT_STD_NRGB   (FEAT_COMMON)
 #define FEAT_LMASK      (FEAT_ANSI | FEAT_ISO)
@@ -173,7 +175,6 @@ typedef struct {
     struct udev_device* udev;
     int handle;
     int uinput;
-    uchar ev_ileds;
 #else
     struct timespec keyrepeat;
     long location_id;
@@ -203,7 +204,7 @@ typedef struct {
     // Whether the keyboard is being actively controlled by the driver
     char active;
     // Device name
-    char name[KB_NAME_LEN];
+    char name[KB_NAME_LEN+1]; // increase by 1 for the trailing \0 for names that are exactly KB_NAME_LEN, e.g. "Corsair STRAFE RGB Gaming Keyboard"
     // Device serial number
     char serial[SERIAL_LEN];
     // USB vendor and product IDs
@@ -217,7 +218,7 @@ typedef struct {
     // Current input state
     usbinput input;
     // Indicator LED state
-    uchar ileds;
+    uchar hw_ileds, ileds;
     // Color dithering in use
     char dither;
 } usbdevice;

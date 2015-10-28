@@ -100,4 +100,5 @@ void KbProfile::keyMap(const KeyMap& newKeyMap){
     _keyMap = newKeyMap;
     foreach(KbMode* mode, _modes)
         mode->keyMap(newKeyMap);
+    setNeedsUpdate();
 }

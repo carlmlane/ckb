@@ -54,25 +54,32 @@ public:
         K65,
         K70,
         K95,
+        STRAFE,
         // Mouse models
         M65,
+        SABRE,
+        SCIMITAR,
         _MODEL_MAX
     };
     // Key layouts (ordered alphabetically by name)
     enum Layout {
         NO_LAYOUT = -1,
-        FR,                 // France
-        DE,                 // Germany
-        ES,                 // Spain
-        SE,                 // Sweden
-        GB,                 // United Kingdom
+        EU,                 // English (EU)
+        EU_DVORAK,
+        GB,                 // English (UK)
         GB_DVORAK,
-        US,                 // United States
+        US,                 // English (US)
         US_DVORAK,
+        FR,                 // French
+        DE,                 // German
+        IT,                 // Italian
+        PL,                 // Polish (identical to US)
+        ES,                 // Spanish
+        SE,                 // Swedish
         _LAYOUT_MAX
     };
     // ISO (105-key) or ANSI (104-key)?
-    inline static bool  isISO(Layout layout)    { return layout != US && layout != US_DVORAK; }
+    inline static bool  isISO(Layout layout)    { return layout != US && layout != US_DVORAK && layout != PL; }
     inline bool         isISO() const           { return isISO(keyLayout); }
     // Auto-detects layout from system locale
     static Layout       locale();
@@ -80,7 +87,7 @@ public:
     // Keyboard or mouse?
     inline static bool  isKeyboard(Model model) { return !isMouse(model) && model != NO_MODEL; }
     inline bool         isKeyboard() const      { return isKeyboard(keyModel); }
-    inline static bool  isMouse(Model model)    { return model == M65; }
+    inline static bool  isMouse(Model model)    { return model == M65 || model == SABRE || model == SCIMITAR; }
     inline bool         isMouse() const         { return isMouse(keyModel); }
 
     // Creates a blank key map
@@ -129,6 +136,9 @@ public:
     static QString friendlyName(const QString& key, Layout layout);
 
 private:
+    static int modelWidth(Model model);
+    static int modelHeight(Model model);
+
     QHash<QString, Key> _keys;
     short keyWidth, keyHeight;
     Model keyModel :8;

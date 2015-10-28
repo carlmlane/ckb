@@ -23,7 +23,7 @@ KbPerf* KbBind::perf(){
     return modeParent()->perf();
 }
 
-KbLight* KbBind::light() {
+KbLight* KbBind::light(){
     return modeParent()->light();
 }
 
@@ -45,6 +45,7 @@ void KbBind::load(CkbSettings& settings){
             _bind[name] = new KeyAction(bind, this);
         }
     }
+    _winLock = settings.value("WinLock").toBool();
     emit didLoad();
     map(currentMap);
 }
@@ -59,10 +60,11 @@ void KbBind::save(CkbSettings& settings){
         SGroup group(settings, "Keys");
         foreach(QString key, _bind.keys()){
             KeyAction* act = _bind.value(key);
-            if(act && act->value() != defaultAction(key))
+            if(act && act->value() != KeyAction::defaultAction(key))
                 settings.setValue(key, act->value());
         }
     }
+    settings.setValue("WinLock", _winLock);
 }
 
 QString KbBind::globalRemap(const QString& key){

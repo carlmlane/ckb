@@ -19,7 +19,6 @@ macx {
 }
 
 # OSX settings
-QMAKE_MAC_SDK = macosx10.10
 QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.9
 ICON = ckb-logo.icns
 QMAKE_INFO_PLIST = ckb-info.plist
@@ -35,12 +34,17 @@ DEFINES += CKB_VERSION_STR="\\\"$$CKB_VERSION_STR\\\""
 LIBS += -lz
 DEFINES += QUAZIP_STATIC
 
-# Conditionally use libappindicator to support Unity indicators
 linux {
+# Conditionally use libappindicator to support Unity indicators
 system(pkg-config --exists appindicator-0.1) {
     CONFIG += link_pkgconfig
     PKGCONFIG += appindicator-0.1
     DEFINES += USE_LIBAPPINDICATOR
+}
+# Also use libx11 for screen detection
+system(pkg-config --exists x11) {
+    LIBS += -lX11
+    DEFINES += USE_LIBX11
 }
 }
 
@@ -90,7 +94,9 @@ SOURCES += main.cpp\
     ckbsettings.cpp \
     kbperf.cpp \
     ckbsettingswriter.cpp \
-    keyaction.cpp
+    keyaction.cpp \
+    mperfwidget.cpp \
+    kperfwidget.cpp
 
 HEADERS  += mainwindow.h \
     kbwidget.h \
@@ -141,7 +147,9 @@ HEADERS  += mainwindow.h \
     ckbsettings.h \
     kbperf.h \
     ckbsettingswriter.h \
-    keyaction.h
+    keyaction.h \
+    mperfwidget.h \
+    kperfwidget.h
 
 FORMS    += mainwindow.ui \
     kbwidget.ui \
@@ -155,7 +163,9 @@ FORMS    += mainwindow.ui \
     kbbindwidget.ui \
     rebindwidget.ui \
     modeselectdialog.ui \
-    fwupgradedialog.ui
+    fwupgradedialog.ui \
+    mperfwidget.ui \
+    kperfwidget.ui
 
 RESOURCES += \
     image.qrc \

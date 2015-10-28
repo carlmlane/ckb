@@ -160,7 +160,7 @@ bool AnimScript::load(){
             QString prefix = urlParam(components[3]), postfix = urlParam(components[4]);
             QVariant def = urlParam(components[5]), minimum = urlParam(components[6]), maximum = urlParam(components[7]);
             // Don't allow predefined params
-            if(name == "trigger" || name == "kptrigger" || name == "duration" || name == "delay" || name == "kpdelay" || name == "repeat" || name == "kprepeat" || name == "stop" || name == "kpstop" || name == "kprelease")
+            if(name == "trigger" || name == "kptrigger" || name == "kpmode" || name == "duration" || name == "delay" || name == "kpdelay" || name == "repeat" || name == "kprepeat" || name == "stop" || name == "kpstop" || name == "kpmodestop" || name == "kprelease")
                 continue;
             Param param = { type, name, prefix, postfix, def, minimum, maximum };
             _info.params.append(param);
@@ -204,11 +204,17 @@ bool AnimScript::load(){
     _info.params.append(kptrigger);
     if(_info.absoluteTime || !_info.repeat)
         _info.preempt = false;
+    Param kpmode = { Param::LONG, "kpmode", "", "", 1, 0, 0 };
+    if(_info.kpMode)
+        kpmode.defaultValue = 0;
+    _info.params.append(kpmode);
     Param delay = { Param::DOUBLE, "delay", "", "", 0., 0., ONE_DAY };
     Param kpdelay = { Param::DOUBLE, "kpdelay", "", "", 0., 0., ONE_DAY };
-    Param kprelease = { Param::BOOL, "kprelease", "", "", false, 0, 03 };
     _info.params.append(delay);
     _info.params.append(kpdelay);
+    Param kpmodestop = { Param::BOOL, "kpmodestop", "", "", false, 0, 0 };
+    Param kprelease = { Param::BOOL, "kprelease", "", "", false, 0, 0 };
+    _info.params.append(kpmodestop);
     _info.params.append(kprelease);
     if(_info.repeat){
         Param repeat = { Param::DOUBLE, "repeat", "", "", defaultDuration, 0.1, ONE_DAY };
@@ -281,10 +287,6 @@ void AnimScript::begin(quint64 timestamp){
         return;
     end();
     stopped = firstFrame = readFrame = readAnyFrame = false;
-    process = new QProcess(this);
-    connect(process, SIGNAL(readyRead()), this, SLOT(readProcess()));
-    process->start(_path, QStringList("--ckb-run"));
-    qDebug() << "Starting " << _path;
     // Determine the upper left corner of the given keys
     QStringList keysCopy = _keys;
     minX = INT_MAX;
@@ -300,6 +302,15 @@ void AnimScript::begin(quint64 timestamp){
         if(pos.y < minY)
             minY = pos.y;
     }
+    if(keysCopy.isEmpty()){
+        // If the key list is empty, don't actually start the animation but pretend it's running anyway
+        firstFrame = readFrame = readAnyFrame = true;
+        return;
+    }
+    process = new QProcess(this);
+    connect(process, SIGNAL(readyRead()), this, SLOT(readProcess()));
+    process->start(_path, QStringList("--ckb-run"));
+    qDebug() << "Starting " << _path;
     // Write the keymap to the process
     process->write("begin keymap\n");
     process->write(QString("keycount %1\n").arg(keysCopy.count()).toLatin1());
@@ -324,7 +335,8 @@ void AnimScript::retrigger(quint64 timestamp, bool allowPreempt){
     if(!process)
         begin(timestamp);
     advance(timestamp);
-    process->write("start\n");
+    if(process)
+        process->write("start\n");
 }
 
 void AnimScript::stop(quint64 timestamp){
@@ -333,7 +345,8 @@ void AnimScript::stop(quint64 timestamp){
     if(!process)
         begin(timestamp);
     advance(timestamp);
-    process->write("stop\n");
+    if(process)
+        process->write("stop\n");
 }
 
 void AnimScript::keypress(const QString& key, bool pressed, quint64 timestamp){
@@ -341,12 +354,16 @@ void AnimScript::keypress(const QString& key, bool pressed, quint64 timestamp){
         return;
     if(!process)
         begin(timestamp);
-    switch(_info.kpMode){
+    int kpMode = _info.kpMode;
+    if(_paramValues.value("kpmode", 0).toInt() != 0)
+        // Disable KP mode according to user preferences
+        kpMode = KP_NONE;
+    switch(kpMode){
     case KP_NONE:
         // If KPs aren't allowed, call retrigger/stop instead
         if(pressed)
             retrigger(timestamp);
-        else
+        else if(_paramValues.value("kprelease", false).toBool())
             stop(timestamp);
         break;
     case KP_NAME:
@@ -410,7 +427,7 @@ void AnimScript::frame(quint64 timestamp){
         begin(timestamp);
 
     advance(timestamp);
-    if(readFrame || !firstFrame)
+    if((readFrame || !firstFrame) && process)
         // Don't ask for a new frame if the animation hasn't delivered the last one yet
         process->write("frame\n");
     firstFrame = true;
@@ -418,7 +435,7 @@ void AnimScript::frame(quint64 timestamp){
 }
 
 void AnimScript::advance(quint64 timestamp){
-    if(timestamp <= lastFrame)
+    if(timestamp <= lastFrame || !process)
         // Don't do anything if the time hasn't actually advanced.
         return;
     double delta = (timestamp - lastFrame) / (double)durationMsec;

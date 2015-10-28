@@ -175,8 +175,10 @@ int readcmd(usbdevice* kb, const char* line){
         case DITHER: {
             // 0: No dither, 1: Ordered dither.
             uint dither;
-            if(sscanf(word, "%u", &dither) == 1 && dither >= 0 && dither <= 1){
+            if(sscanf(word, "%u", &dither) == 1 && dither <= 1){
                 kb->dither = dither;
+                profile->currentmode->light.forceupdate = 1;
+                mode->light.forceupdate = 1;
             }
             continue;
         }
@@ -195,17 +197,25 @@ int readcmd(usbdevice* kb, const char* line){
             TRY_WITH_RESET(vt->idle(kb, mode, notifynumber, 0, 0));
             continue;
         case SWITCH:
-            profile->currentmode = mode;
-            // Set mode light for non-RGB K95
-            int index = INDEX_OF(mode, profile->mode);
-            vt->setmodeindex(kb, index);
+            if(profile->currentmode != mode){
+                profile->currentmode = mode;
+                // Set mode light for non-RGB K95
+                int index = INDEX_OF(mode, profile->mode);
+                vt->setmodeindex(kb, index);
+            }
             continue;
-        case HWLOAD: case HWSAVE:
+        case HWLOAD: case HWSAVE:{
+            char delay = kb->usbdelay;
+            // Ensure delay of at least 10ms as the device can get overwhelmed otherwise
+            if(delay < 10)
+                kb->usbdelay = 10;
             // Try to load/save the hardware profile. Reset on failure, disconnect if reset fails.
             TRY_WITH_RESET(vt->do_io[command](kb, mode, notifynumber, 1, 0));
             // Re-send the current RGB state as it sometimes gets scrambled
             TRY_WITH_RESET(vt->updatergb(kb, 1));
+            kb->usbdelay = delay;
             continue;
+        }
         case FWUPDATE:
             // FW update parses a whole word. Unlike hwload/hwsave, there's no try again on failure.
             if(vt->fwupdate(kb, mode, notifynumber, 0, word)){

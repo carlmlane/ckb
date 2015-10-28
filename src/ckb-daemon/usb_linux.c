@@ -10,42 +10,56 @@ static char kbsyspath[DEV_MAX][FILENAME_MAX];
 
 int os_usbsend(usbdevice* kb, const uchar* out_msg, int is_recv, const char* file, int line){
     int res;
-    if(kb->fwversion >= 0x120){
-#if 0   // Change to #if 1 if using valgrind (4 padding bytes between timeout/data; valgrind thinks they're uninit'd and complains)
+    if(kb->fwversion >= 0x120 && !is_recv){
         struct usbdevfs_bulktransfer transfer;
         memset(&transfer, 0, sizeof(transfer));
-        transfer.ep = 3; transfer.len = MSG_SIZE; transfer.timeout = 5000; transfer.data = (void*)out_msg;
-#else
-        struct usbdevfs_bulktransfer transfer = { 3, MSG_SIZE, 5000, (void*)out_msg };
-#endif
+        transfer.ep = (kb->fwversion >= 0x130) ? 4 : 3;
+        transfer.len = MSG_SIZE;
+        transfer.timeout = 5000;
+        transfer.data = (void*)out_msg;
         res = ioctl(kb->handle, USBDEVFS_BULK, &transfer);
     } else {
         struct usbdevfs_ctrltransfer transfer = { 0x21, 0x09, 0x0300, 0x03, MSG_SIZE, 5000, (void*)out_msg };
         res = ioctl(kb->handle, USBDEVFS_CONTROL, &transfer);
     }
     if(res <= 0){
-        if(res == -1 && errno == ETIMEDOUT){
-            ckb_warn_fn("%s (continuing)\n", file, line, strerror(errno));
-            return -1;
-        }
         ckb_err_fn("%s\n", file, line, res ? strerror(errno) : "No data written");
-        return 0;
+        if(res == -1 && errno == ETIMEDOUT)
+            return -1;
+        else
+            return 0;
     } else if(res != MSG_SIZE)
         ckb_warn_fn("Wrote %d bytes (expected %d)\n", file, line, res, MSG_SIZE);
+#ifdef DEBUG_USB
+    char converted[MSG_SIZE*3 + 1];
+    for(int i=0;i<MSG_SIZE;i++)
+        sprintf(&converted[i*3], "%02x ", out_msg[i]);
+    ckb_warn_fn("Sent %s\n", file, line, converted);
+#endif
     return res;
 }
 
 int os_usbrecv(usbdevice* kb, uchar* in_msg, const char* file, int line){
-    DELAY_MEDIUM(kb);
-    struct usbdevfs_ctrltransfer transfer = { 0xa1, 0x01, 0x0300, 0x03, MSG_SIZE, 5000, in_msg };
-    int res = ioctl(kb->handle, USBDEVFS_CONTROL, &transfer);
+    int res;
+    // This is what CUE does, but it doesn't seem to work on linux.
+    /*if(kb->fwversion >= 0x130){
+        struct usbdevfs_bulktransfer transfer;
+        memset(&transfer, 0, sizeof(transfer));
+        transfer.ep = 0x84;
+        transfer.len = MSG_SIZE;
+        transfer.timeout = 5000;
+        transfer.data = in_msg;
+        res = ioctl(kb->handle, USBDEVFS_BULK, &transfer);
+    } else {*/
+        struct usbdevfs_ctrltransfer transfer = { 0xa1, 0x01, 0x0300, 0x03, MSG_SIZE, 5000, in_msg };
+        res = ioctl(kb->handle, USBDEVFS_CONTROL, &transfer);
+    //}
     if(res <= 0){
-        if(res == -1 && errno == ETIMEDOUT){
-            ckb_warn_fn("%s (continuing)\n", file, line, strerror(errno));
+        ckb_err_fn("%s\n", file, line, res ? strerror(errno) : "No data written");
+        if(res == -1 && errno == ETIMEDOUT)
             return -1;
-        }
-        ckb_err_fn("%s\n", file, line, res ? strerror(errno) : "No data read");
-        return 0;
+        else
+            return 0;
     } else if(res != MSG_SIZE)
         ckb_warn_fn("Read %d bytes (expected %d)\n", file, line, res, MSG_SIZE);
     return res;
@@ -112,9 +126,14 @@ void* os_inputmain(void* context){
             // Process input (if any)
             pthread_mutex_lock(imutex(kb));
             if(IS_MOUSE(vendor, product)){
-                if(urb->endpoint == 0x82){
+                switch(urb->endpoint){
+                case 0x82:
                     // RGB mouse input
                     hid_mouse_translate(kb->input.keys, &kb->input.rel_x, &kb->input.rel_y, -(urb->endpoint & 0xF), urb->actual_length, urb->buffer);
+                    break;
+                case 0x83:
+                    corsair_mousecopy(kb->input.keys, urb->buffer);
+                    break;
                 }
             } else if(IS_RGB(vendor, product)){
                 switch(urb->endpoint){
@@ -123,12 +142,13 @@ void* os_inputmain(void* context){
                     hid_kb_translate(kb->input.keys, -1, urb->actual_length, urb->buffer);
                     break;
                 case 0x82:
-                    // RGB EP 2: NKRO (non-BIOS) input
-                    hid_kb_translate(kb->input.keys, -2, urb->actual_length, urb->buffer);
+                    // RGB EP 2: NKRO (non-BIOS) input. Accept only if keyboard is inactive
+                    if(!kb->active)
+                        hid_kb_translate(kb->input.keys, -2, urb->actual_length, urb->buffer);
                     break;
                 case 0x83:
                     // RGB EP 3: Corsair input
-                    corsair_keycopy(kb->input.keys, urb->buffer);
+                    corsair_kbcopy(kb->input.keys, urb->buffer);
                     break;
                 }
             } else
@@ -247,6 +267,7 @@ int os_setupusb(usbdevice* kb){
         sscanf(firmware, "%hx", &kb->fwversion);
     else
         kb->fwversion = 0;
+    ckb_info("8 %s \n", kb->name);
     ckb_info("Connecting %s (S/N: %s)\n", kb->name, kb->serial);
 
     // Claim the USB interfaces
@@ -315,8 +336,12 @@ static _model models[] = {
     { P_K70_NRGB_STR, P_K70_NRGB },
     { P_K95_STR, P_K95 },
     { P_K95_NRGB_STR, P_K95_NRGB },
+    { P_STRAFE_STR, P_STRAFE },
+    { P_STRAFE_NRGB_STR, P_STRAFE_NRGB },
     // Mice
-    { P_M65_STR, P_M65 }
+    { P_M65_STR, P_M65 },
+    { P_SABRE_STR, P_SABRE },
+    { P_SCIMITAR_STR, P_SCIMITAR }
 };
 #define N_MODELS (sizeof(models) / sizeof(_model))
 

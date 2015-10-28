@@ -41,21 +41,14 @@ public:
     static int          shareDimming();
     static void         shareDimming(int newShareDimming);
 
-    // Inactive indicator level. -1 for no dimming, 2 for off
-    static const int    MAX_INACTIVE = 2;
-    inline int          inactive()              { return _inactive; }
-    inline void         inactive(int in)        { _needsSave = true; _inactive = in; emit updated(); }
-
-    // Whether or not to indicate the mute key
-    inline bool showMute()                  { return _showMute; }
-    inline void showMute(bool newShowMute)  { _needsSave = true; _showMute = newShowMute; emit updated(); }
-
     // Lighting animations
     typedef QList<KbAnim*> AnimList;
     KbAnim*             addAnim(const AnimScript* base, const QStringList& keys, const QString& name, const QMap<QString, QVariant>& preset);
     KbAnim*             duplicateAnim(KbAnim* oldAnim);
     const AnimList&     animList()                              { return _animList; }
     void                animList(const AnimList& newAnimList)   { _needsSave = true; _animList = newAnimList; }
+    KbAnim*             findAnim(const QUuid& guid) const       { foreach(KbAnim* anim, _animList) { if(anim->guid() == guid) return anim; } return 0; }
+    int                 findAnimIdx(const QUuid& guid) const    { return _animList.indexOf(findAnim(guid)); }
     // Preview animation - temporary animation displayed at the top of the animation list
     void previewAnim(const AnimScript* base, const QStringList& keys, const QMap<QString, QVariant>& preset);
     void stopPreview();
@@ -71,8 +64,8 @@ public:
     // Make the lighting idle, stopping any animations.
     void close();
 
-    // Write a new frame to the keyboard. Write "mode %d" first. Optionally provide a list of keys to show in a dimmed state.
-    void frameUpdate(QFile& cmd, const QStringList &dimKeys = QStringList());
+    // Write a new frame to the keyboard. Write "mode %d" first. Optionally provide a list of keys to use as indicators and overwrite the lighting
+    void frameUpdate(QFile& cmd, const ColorMap& indicators = ColorMap());
     // Write the mode's base colors without any animation
     void base(QFile& cmd, bool ignoreDim = false);
 
@@ -93,8 +86,6 @@ private:
     ColorMap    _colorMap;
     quint64     lastFrameSignal;
     int         _dimming;
-    int         _inactive;
-    bool        _showMute;
     bool        _start;
     bool        _needsSave;
 
